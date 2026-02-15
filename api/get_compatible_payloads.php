@@ -14,8 +14,8 @@ if ($mission_id <= 0) {
 }
 
 // Get mission constraints
-$mission_sql = "SELECT * FROM missions WHERE id = ?";
-$mission_result = executeQuery($mission_sql, [$mission_id], 'i');
+$mission_sql = "SELECT * FROM missions WHERE id = $1";
+$mission_result = executeQuery($mission_sql, [$mission_id]);
 
 if (empty($mission_result['data'])) {
     http_response_code(404);
@@ -43,16 +43,16 @@ $payload_sql = "SELECT
     cr.priority_rank,
     cr.notes,
     CASE 
-        WHEN p.weight_kg <= ? AND p.power_draw_kw <= ? AND p.volume_l <= ? THEN 'Compatible'
-        WHEN p.weight_kg > ? THEN 'Exceeds weight limit'
-        WHEN p.power_draw_kw > ? THEN 'Exceeds power budget'
-        WHEN p.volume_l > ? THEN 'Exceeds volume capacity'
+        WHEN p.weight_kg <= $1 AND p.power_draw_kw <= $2 AND p.volume_l <= $3 THEN 'Compatible'
+        WHEN p.weight_kg > $4 THEN 'Exceeds weight limit'
+        WHEN p.power_draw_kw > $5 THEN 'Exceeds power budget'
+        WHEN p.volume_l > $6 THEN 'Exceeds volume capacity'
         ELSE 'Unknown incompatibility'
     END as compatibility_status
 FROM payloads p
 INNER JOIN compatibility_rules cr ON p.id = cr.payload_id
 LEFT JOIN interfaces i ON p.interface_id = i.id
-WHERE cr.mission_id = ?
+WHERE cr.mission_id = $7
 ORDER BY cr.priority_rank ASC, p.name ASC";
 
 $payload_result = executeQuery(
@@ -65,8 +65,7 @@ $payload_result = executeQuery(
         $mission['max_power_draw_kw'],
         $mission['max_payload_volume_l'],
         $mission_id
-    ],
-    'ddddddi'
+    ]
 );
 
 if ($payload_result['success']) {

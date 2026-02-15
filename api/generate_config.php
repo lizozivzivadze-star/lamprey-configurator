@@ -18,8 +18,8 @@ if ($mission_id <= 0 || empty($payload_ids)) {
 }
 
 // Get mission details
-$mission_sql = "SELECT * FROM missions WHERE id = ?";
-$mission_result = executeQuery($mission_sql, [$mission_id], 'i');
+$mission_sql = "SELECT * FROM missions WHERE id = $1";
+$mission_result = executeQuery($mission_sql, [$mission_id]);
 
 if (empty($mission_result['data'])) {
     http_response_code(404);
@@ -32,9 +32,14 @@ if (empty($mission_result['data'])) {
 
 $mission = $mission_result['data'][0];
 
-// Get selected payloads
-$placeholders = implode(',', array_fill(0, count($payload_ids), '?'));
-$types = str_repeat('i', count($payload_ids));
+// Build placeholders for IN clause
+$placeholders = [];
+$params = [$mission_id];
+for ($i = 0; $i < count($payload_ids); $i++) {
+    $placeholders[] = '$' . ($i + 2);
+    $params[] = $payload_ids[$i];
+}
+$placeholders_str = implode(',', $placeholders);
 
 $payload_sql = "SELECT 
     p.*,
@@ -43,14 +48,11 @@ $payload_sql = "SELECT
     cr.notes
 FROM payloads p
 LEFT JOIN interfaces i ON p.interface_id = i.id
-LEFT JOIN compatibility_rules cr ON p.id = cr.payload_id AND cr.mission_id = ?
-WHERE p.id IN ($placeholders)
+LEFT JOIN compatibility_rules cr ON p.id = cr.payload_id AND cr.mission_id = $1
+WHERE p.id IN ($placeholders_str)
 ORDER BY p.name";
 
-$params = array_merge([$mission_id], $payload_ids);
-$types = 'i' . $types;
-
-$payload_result = executeQuery($payload_sql, $params, $types);
+$payload_result = executeQuery($payload_sql, $params);
 
 if (!$payload_result['success']) {
     http_response_code(500);
